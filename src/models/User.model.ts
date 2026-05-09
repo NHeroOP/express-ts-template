@@ -1,5 +1,5 @@
-import { model, Schema } from "mongoose";
-import jwt, { type Secret, type SignOptions } from "jsonwebtoken";
+import { model, Schema, type HydratedDocument } from "mongoose";
+import jwt, { type Secret, type SignOptions,  } from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
 export interface IUser {
@@ -10,9 +10,16 @@ export interface IUser {
   password: string;
   refreshToken?: string;
   googleId?: string;
+
+  generateAccessToken: () => string;
+  generateRefreshToken: () => string;
+  isPasswordCorrect: (password: string) => Promise<boolean>;
 }
 
-const userSchema = new Schema(
+
+export type IUserDocument = HydratedDocument<IUser>;
+
+const userSchema = new Schema<IUser>(
   {
     username: {
       type: String,
@@ -52,17 +59,17 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
-userSchema.pre("save", async function () {
+userSchema.pre("save", async function (): Promise<void> {
   if (!this.isModified("password")) return;
 
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-userSchema.methods.isPasswordCorrect = async function (password: string) {
+userSchema.methods.isPasswordCorrect = async function (password: string): Promise<boolean> {
   return await bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.generateAccessToken = function () {
+userSchema.methods.generateAccessToken = function (): string {
   return jwt.sign(
     {
       _id: this._id,
@@ -77,7 +84,7 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-userSchema.methods.generateRefreshToken = function () {
+userSchema.methods.generateRefreshToken = function (): string {
   return jwt.sign(
     {
       _id: this._id,
@@ -89,4 +96,4 @@ userSchema.methods.generateRefreshToken = function () {
   );
 };
 
-export const User = model("User", userSchema);
+export const User = model<IUser>("User", userSchema);
