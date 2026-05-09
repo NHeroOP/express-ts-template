@@ -9,6 +9,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+};
+
 const generateTokens = async (userId: Types.ObjectId | string): Promise<{ accessToken: string; refreshToken: string }> => {
   try {
     const user = await User.findById(userId);
@@ -109,6 +116,9 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(404, "User not found");
   }
   
+  if (!user.password) {
+    throw new ApiError(400, "User registered with Google. Please login with Google");
+  }
 
   const isPassValid: boolean = await user.isPasswordCorrect(password);
   if (!isPassValid) {
@@ -125,15 +135,10 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     avatarUrl: user.avatarUrl,
   }
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(200, {
         user: userData,
@@ -155,15 +160,10 @@ export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
     $unset: { refreshToken: 1 }
   }, { returnDocument: "after" });  
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-
   return res
     .status(200)
-    .clearCookie("accessToken", options)  
-    .clearCookie("refreshToken", options)
+    .clearCookie("accessToken", cookieOptions)  
+    .clearCookie("refreshToken", cookieOptions)
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 })
 
@@ -187,17 +187,12 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
       throw new ApiError(401, "Invalid refresh token");
     }
   
-    const options = {
-      httpOnly: true,
-      secure: true,
-    }
-  
     const { accessToken, refreshToken: newRefreshToken } = await generateTokens(user._id);
     
     return res
       .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefreshToken, options)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", newRefreshToken, cookieOptions)
       .json(
         new ApiResponse(200, {
           accessToken,
@@ -209,3 +204,19 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
     throw new ApiError(401, err?.message || "Invalid refresh token");
   }
 })
+
+export const googleAuth = asyncHandler(async (req: Request, res: Response) => {
+  const user = req.user!;
+
+  const { accessToken, refreshToken } =
+    await generateTokens(user._id);
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json({
+      success: true,
+      user,
+    });
+});

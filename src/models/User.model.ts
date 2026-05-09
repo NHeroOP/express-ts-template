@@ -7,7 +7,7 @@ export interface IUser {
   fullName: string;
   avatarUrl?: string;
   email: string;
-  password: string;
+  password?: string;
   refreshToken?: string;
   googleId?: string;
 
@@ -47,7 +47,6 @@ const userSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: true,
     },
     refreshToken: {
       type: String,
@@ -62,10 +61,14 @@ const userSchema = new Schema<IUser>(
 userSchema.pre("save", async function (): Promise<void> {
   if (!this.isModified("password")) return;
 
+  if (!this.password) return;
+
   this.password = await bcrypt.hash(this.password, 10);
 });
 
 userSchema.methods.isPasswordCorrect = async function (password: string): Promise<boolean> {
+  if (!this.password) return false;
+  
   return await bcrypt.compare(password, this.password);
 };
 
