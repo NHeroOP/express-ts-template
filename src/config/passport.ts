@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User } from "../models/User.model.js";
+import { generateUsername } from "../utils/usernameGen.js";
 
 passport.use(
   new GoogleStrategy(
@@ -26,13 +27,20 @@ passport.use(
           await user.save();
         }
 
+        const username = await generateUsername(profile.displayName);
         if (!user) {
           user = await User.create({
+            username,
             fullName: profile.displayName,
             email,
             googleId: profile.id,
             avatarUrl: profile.photos?.[0]?.value || "",
           });
+        }
+
+        user = await User.findById(user._id).select("-password -refreshToken -googleId");
+        if (!user) {
+          return done(new Error("User not found after creation"));
         }
 
         return done(null, user);
