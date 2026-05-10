@@ -1,0 +1,1 @@
+export const VERIFICATION_EMAIL_TEMPLATE_ID = "your-template-id-here";

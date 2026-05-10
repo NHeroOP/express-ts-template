@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { googleAuth, loginUser, logoutUser, registerUser } from "../controllers/auth.controller.js";
+import { googleAuth, loginUser, logoutUser, registerUser, sendEmail } from "../controllers/auth.controller.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -16,6 +16,9 @@ router.route("/login")
 
 router.route("/logout")
   .post(verifyJWT, logoutUser);
+
+router.route("/send-email")
+  .post(sendEmail);
 
 router.route("/google").get(
   passport.authenticate("google", {

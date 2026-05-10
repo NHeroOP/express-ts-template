@@ -4,10 +4,13 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { Types } from "mongoose";
 import { User } from "../models/User.model.js";
 
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary } from "../config/cloudinary.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+
+import resend from '../config/resend.js';
+import { VERIFICATION_EMAIL_TEMPLATE_ID } from "../consts.js";
 
 
 const cookieOptions = {
@@ -219,4 +222,37 @@ export const googleAuth = asyncHandler(async (req: Request, res: Response) => {
       success: true,
       user,
     });
+});
+
+
+
+export const sendEmail = asyncHandler(async (req: Request, res: Response) => { 
+  const { email, username, verifyToken } = req.body;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Test <send@noreply.nhero.me>',
+      to: email,
+      subject: "Test Verification Code",
+      template: {
+        id: VERIFICATION_EMAIL_TEMPLATE_ID,
+        variables: {
+          otp: verifyToken,
+        },
+      },
+    });
+
+    console.log(data)
+
+    if (error) {
+      throw new ApiError(500, error.message || "Failed to send verification email");
+    }
+    
+    return res.status(200).json(
+      new ApiResponse(200, data, "Verification email sent successfully")
+    )
+  } 
+  catch (err: any) {
+    throw new ApiError(500, err.message || "Failed to send verification email");
+  }
 });
